@@ -434,7 +434,7 @@ doconv = (dst, src) ->
 
 
 getPackageJSON = ->
-  packagejson = require(process.argv[1].replace(/bin\/[^\/]*$/, '')+'package.json')
+  packagejson = require('../package.json')
   return packagejson
 
 #------------------------------------
