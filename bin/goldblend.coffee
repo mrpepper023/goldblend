@@ -458,7 +458,7 @@ for val,index in process.argv
         filesw = true
       if /v/.test(val) or /^\-\-version$/.test(val)
         options = true
-        console.log 'version 0.2'
+        console.log 'version 0.0.2'
         process.exit 0
       if /h/.test(val) or /^\-\-help$/.test(val)
         options = false

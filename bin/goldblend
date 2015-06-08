@@ -501,7 +501,7 @@ for (index = i = 0, len = ref.length; i < len; index = ++i) {
       }
       if (/v/.test(val) || /^\-\-version$/.test(val)) {
         options = true;
-        console.log('version 0.2');
+        console.log('version 0.0.2');
         process.exit(0);
       }
       if (/h/.test(val) || /^\-\-help$/.test(val)) {
