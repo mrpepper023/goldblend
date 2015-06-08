@@ -1,0 +1,264 @@
+#==========================================
+#== ライブラリ
+require 'coffee-script/register'
+debug          = console.log
+http           = require('http')
+express        = require('express')
+path           = require('path')
+favicon        = require('serve-favicon')
+logger         = require('morgan')
+session        = require('express-session')
+redis          = require('connect-redis')(session)
+cookieParser   = require('cookie-parser')
+bodyParser     = require('body-parser')
+#multer         = require('multer')
+errorHandler   = require('errorhandler')
+
+#jade           = require('jade')
+ect            = require('ect')
+
+redisclient    = require('redis').createClient()
+
+
+testviews      = require('./testviews')
+
+
+#==========================================
+#== express4を使うよ
+app = express()
+app.set('port', process.env.PORT || 3000)
+
+#==========================================
+#== ビューエンジンのセットアップ
+#app.set 'views', path.join(__dirname, 'views')
+#app.set 'view engine', 'jade'
+renderer = ect 
+  watch: true
+  root: path.join(__dirname, 'views')
+  ext : '.ect'
+app.engine 'ect', renderer.render
+app.set 'view engine', 'ect'
+
+#==========================================
+#== 各種の「その他」アクセスはpublicとかに流す
+#== favicon を /public に置いたら、下のコメントアウトを外すべし
+#app.use(favicon(__dirname + '/public/favicon.ico'));
+app.use logger('dev')
+#app.use session({resave: true, saveUninitialized: true, secret: 'uwotm8'})
+app.use bodyParser.json()
+app.use bodyParser.urlencoded(extended: false)
+#app.use multer()
+app.use cookieParser()
+
+#sessionのサンプルここから
+COOKIE_SECRET = 'mysesssecret'
+COOKIE_KEY    = 'mysesskey'
+SESS_PREF     = 'mysesspref'
+
+sessionStore = new redis({host:'127.0.0.1',port:6379,prefix:SESS_PREF})
+
+app.use session
+  key:    COOKIE_KEY
+  secret: COOKIE_SECRET
+  saveUninitialized: true
+  resave: true
+  store:  sessionStore
+  cookie:
+    path: '/'
+    maxAge: 60*60*1000
+#loginの必要なページで、router.get 'path', loginCheck, routefunc
+#とすれば、ログインチェックできる
+loginCheck = (req, res, next) ->
+  if req.session.user 
+    #ログインの有効性はreq.session.userが存在するなら
+    #確認されているものとするが、それでやばければここで検証すべし
+    next
+    return
+  res.redirect '/login'
+app.get '/session-login', (req, res) ->
+  #userの有効性確認
+  req.session.value = req.body.user
+  #uuidで扱っていたデータをuserに引き継ぐ
+  #例えば、ログインせずにカートに積んでいたものが、
+  #ログインして消えちゃったら嫌でしょ？
+  res.send 'user-session created: '+req.body.user
+app.get '/session-logout', (req, res) ->
+  req.session.destroy
+  res.send 'logout'
+app.get '/session-delete', (req, res) ->
+  delete req.session.uuid
+  res.send 'anonymous-session deleted'
+app.get '/session-create', (req, res) ->
+  anon = req.session.uuid or genuuid
+  req.session.value = anon
+  res.send 'anonymous-session uuid: '+anon
+#sessionのサンプルここまで
+
+app.use express.static(path.join(__dirname, 'public'))
+
+#==========================================
+#== 主たる処理はこちら
+router = express.Router()
+testviews = require('./testviews')
+testviews.fragmenttest router
+
+#==========================================
+#== 送信部
+<<<{routername: router, middleware: ,nocache: true,viewengine: ect}
+
+<<<loginform(req,res,defaultname,retry)
+  @render @@, params
+
+<<<dashboard(req,res,username)
+  @render @@, params
+
+
+#==========================================
+#== 受信部（単純に表示を求めるだけではない表示部）
+router.get '/', (req, res) ->
+  if req.query.branch?
+    redisclient.get req.query.branch,(err,val) ->
+      if err
+        globalerror.redirect req,res,'URLが間違っています'
+      else
+        data = JSON.parse val
+        switch data.status
+          when 'active'
+            userpass.redirect req,res,req.query.branch,false
+          else
+            globalerror.redirect req,res,'このアンケートは現在回答できません'
+  else
+    globalerror.redirect req,res,'このURLはアクセスが禁止されています'
+
+router.post '/passinput', ->
+  #パスワード受入処理
+  if result is ok
+    userpass.direct req,res,param
+  else
+    dashboard.redirect req,res,param
+
+
+
+#==========================================
+#== 送受信部登録
+app.use '/', router
+
+
+#==========================================
+#== エラー処理諸々
+
+#== 404エラーを発生させる
+app.use (req, res, next) ->
+  err = new Error('Not Found')
+  err.status = 404
+  next err
+
+#== 開発時エラーハンドラ（StackTrace表示）
+if app.get('env') == 'development'
+  app.use (err, req, res, next) ->
+    res.status err.status or 500
+    res.render '__error',
+      message: err.message
+      error: err
+
+#== 運用時エラーハンドラ
+app.use (err, req, res, next) ->
+  res.status err.status or 500
+  res.render '__error',
+    message: err.message
+    error: {}
+
+#== HTTPサーバの "error" へのイベントリスナ
+onError = (error) ->
+  if error.syscall != 'listen'
+    throw error
+  bind = if typeof port == 'string' then 'Pipe ' + port else 'Port ' + port
+  # handle specific listen errors with friendly messages
+  switch error.code
+    when 'EACCES'
+      console.error bind + ' requires elevated privileges'
+      process.exit 1
+    when 'EADDRINUSE'
+      console.error bind + ' is already in use'
+      process.exit 1
+    else
+      throw error
+  return
+
+#== HTTPサーバの "listening" へのイベントリスナ
+onListening = ->
+  addr = server.address()
+  bind = if typeof addr == 'string' then 'pipe '+addr else 'port '+addr.port
+  debug 'Listening on ' + bind
+  return
+
+
+#==========================================
+#== express4サーバ立ち上げ
+normalizePort = (val) ->
+  port = parseInt(val, 10)
+  return if isNaN(port) then val else if port >= 0 then port else false
+port = normalizePort(process.env.PORT or '3000')
+app.set 'port', port
+server = http.createServer(app)
+server.listen port
+server.on 'error', onError
+server.on 'listening', onListening
+
+
+#SOCKET.IOいらぬ時消すのは、ここから
+
+#==========================================
+#== socketioサーバ立ち上げ
+io = require("socket.io").listen server
+
+
+#==========================================
+#== socketioでexpress4のセッションを使うよ
+#借り物のメソッドを使うため
+CookieParser = require('cookie')
+ParserDetail = require('cookie-parser/lib/parse')
+Session = require('express-session').Session
+
+io.sockets.use (socket, next)->
+  cookie = CookieParser.parse socket.request.headers.cookie
+  cookie = ParserDetail.signedCookies cookie, COOKIE_SECRET
+  sessionID = cookie[COOKIE_KEY]
+  sessionStore.get sessionID, (err, sessionData)->
+    if !err and sessionData
+      #socketのほうのsession情報に、express4のsession情報をぶっ込む
+      socket.session = new Session({sessionID: sessionID, sessionStore: sessionStore}, sessionData)
+      next()
+    else
+      next if err then err.message else '困ったことにセッションエラー'
+
+
+#==========================================
+#== socketio処理
+userHash = {}
+io.sockets.on "connection", (socket) ->
+  session = socket.session?
+
+  #接続開始カスタムイベント(接続元ユーザ保存、他へ通知)
+  socket.on "connected", (name) ->
+    msg = name + "が入室しました"
+    userHash[socket.id] = name
+    io.sockets.emit "publish", {value: msg}
+
+  #メッセージ送信カスタムイベント
+  socket.on "publish", (data) ->
+    io.sockets.emit "publish", {value:data.value}
+
+  #接続終了組み込みイベント(接続元ユーザ削除、他へ通知)
+  socket.on "disconnect", () ->
+    if userHash[socket.id]
+      msg = userHash[socket.id] + "が退出しました"
+      delete userHash[socket.id]
+      io.sockets.emit "publish", {value: msg}
+
+#SOCKET.IOいらぬ時消すのは、ここまで
+
+
+#==========================================
+#== 外部からモジュールへのアクセス
+module.exports = app

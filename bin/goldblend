@@ -1,0 +1,546 @@
+#!/usr/bin/env node
+
+var allflag, coffee, compile, compilesw, createviewstester, dirfiles, doconv, filecopy, filedst, filesrc, filesw, fs, generateMain, generateTail, i, index, itsself, len, options, path, ref, testersw, val, watch, writetext;
+
+fs = require('fs');
+
+path = require('path');
+
+dirfiles = function(dirpath, regex, next) {
+  var fnames;
+  fnames = [];
+  console.log('scanning in ' + dirpath);
+  return fs.readdir(dirpath, function(err, files) {
+    if (err) {
+      console.log(err);
+      throw err;
+    }
+    files.forEach(function(fname) {
+      if (regex.test(fname)) {
+        if ((fs.statSync(dirpath + '/' + fname)).isFile()) {
+          return fnames.push(fname);
+        }
+      }
+    });
+    return next(fnames);
+  });
+};
+
+createviewstester = function(viewengine) {
+  var code, i, len, line, mode, nowtemplate, result, templates, usercodes;
+  if (fs.existsSync('testviews.coffee')) {
+    code = fs.readFileSync('testviews.coffee');
+    code = code.toString().split("\n");
+  } else {
+    code = ['fragmenttest = (router) ->', '', '  fs = require(' + "'" + 'fs' + "'" + ')', '', '  #<<<cases', '  #<<<cases', '', 'module.exports.fragmenttest = fragmenttest'];
+  }
+  templates = [];
+  usercodes = {};
+  mode = 'global';
+  for (i = 0, len = code.length; i < len; i++) {
+    line = code[i];
+    switch (mode) {
+      case 'global':
+        if (line === '  #<<<cases') {
+          mode = 'views';
+        }
+        break;
+      case 'views':
+        if (line === '  #<<<cases') {
+          mode = 'global';
+        } else {
+          if (/^  #<<<__/.test(line)) {
+            mode = 'template';
+            result = line.match(/^  #<<<(\S+)/);
+            nowtemplate = result[1];
+            templates.push(nowtemplate);
+            if (usercodes[nowtemplate] == null) {
+              usercodes[nowtemplate] = {};
+            }
+            usercodes[nowtemplate]['exist'] = false;
+          }
+        }
+        break;
+      case 'template':
+        if (/^  #<<<__/.test(line)) {
+          mode = 'views';
+        } else {
+          if (/^    #<<<user/.test(line)) {
+            mode = 'usercode';
+          }
+        }
+        break;
+      case 'usercode':
+        if (/^    #<<<user/.test(line)) {
+          mode = 'template';
+        }
+        usercodes[nowtemplate]['lines'] = [];
+        usercodes[nowtemplate]['lines'].push(line);
+        break;
+    }
+  }
+  return dirfiles(__dirname + '/views', new RegExp('^__.*\.' + viewengine + '$'), function(fnames) {
+    var fname, j, k, l, len1, len2, len3, len4, m, ref, resultcode, selectone, str;
+    for (j = 0, len1 = fnames.length; j < len1; j++) {
+      fname = fnames[j];
+      fname = fname.replace(/\.[^.]+$/, '');
+      templates.push(fname);
+      if (usercodes[fname] == null) {
+        usercodes[fname] = {};
+      }
+      usercodes[fname]['exist'] = true;
+    }
+    resultcode = [];
+    mode = 'global';
+    for (k = 0, len2 = code.length; k < len2; k++) {
+      line = code[k];
+      switch (mode) {
+        case 'global':
+          if (line === '  #<<<cases') {
+            mode = 'views';
+          }
+          resultcode.push(line);
+          break;
+        case 'views':
+          if (line === '#deprecated') {
+
+          } else if (line === '  #<<<cases') {
+            for (l = 0, len3 = templates.length; l < len3; l++) {
+              selectone = templates[l];
+              if (usercodes[selectone].ok != null) {
+
+              } else {
+                resultcode.push('');
+                resultcode.push("  router.get '/" + selectone + "',(req,res) ->");
+                resultcode.push('    params = req.query ? {}');
+                resultcode.push('    #<<<user');
+                resultcode.push('    #<<<user');
+                resultcode.push("    res.render '" + selectone + "', params");
+                resultcode.push('');
+              }
+            }
+            mode = 'global';
+            resultcode.push(line);
+          } else {
+            if (/^  #<<<__/.test(line)) {
+              mode = 'template';
+              result = line.match(/^  #<<<(\S+)/);
+              nowtemplate = result[1];
+              usercodes[nowtemplate]['ok'] = true;
+              if (!usercodes[nowtemplate].exist) {
+                resultcode.push('#deprecated');
+              }
+            }
+            resultcode.push(line);
+          }
+          break;
+        case 'template':
+          if (/^  #<<<__/.test(line)) {
+            resultcode.push('');
+            resultcode.push("  router.get '/" + nowtemplate + "',(req,res) ->");
+            resultcode.push('    params = req.query ? {}');
+            resultcode.push('    #<<<user');
+            ref = usercodes[nowtemplate].lines;
+            for (m = 0, len4 = ref.length; m < len4; m++) {
+              str = ref[m];
+              resultcode.push(str);
+            }
+            resultcode.push('    #<<<user');
+            resultcode.push("    res.render '" + nowtemplate + "', params");
+            resultcode.push('');
+            resultcode.push(line);
+            mode = 'views';
+          } else {
+            if (/^    #<<<user/.test(line)) {
+              mode = 'usercode';
+            }
+          }
+          break;
+        case 'usercode':
+          if (/^    #<<<user/.test(line)) {
+            mode = 'template';
+          }
+          break;
+      }
+    }
+    return fs.writeFileSync('testviews.coffee', resultcode.join("\n"));
+  });
+};
+
+coffee = require('coffee-script').compile;
+
+compile = function(filedst) {
+  var compiled, jssrc, oldmask, read, shebang;
+  read = fs.readFileSync(filedst, 'utf8');
+  shebang = read.match(/^#!.*\r?\n/);
+  if (shebang != null) {
+    shebang = shebang[0];
+    read = read.replace(shebang, '');
+    shebang = shebang.replace('coffee', 'node');
+  }
+  jssrc = coffee(read.toString(), {
+    bare: true
+  });
+  if (shebang != null) {
+    jssrc = shebang + "\n" + jssrc;
+    compiled = filedst.replace(/\.coffee$/, '');
+  } else {
+    compiled = filedst.replace(/coffee$/, 'js');
+  }
+  fs.writeFileSync(compiled, jssrc, 'utf8');
+  if (shebang != null) {
+    oldmask = process.umask(0);
+    fs.chmodSync(compiled, 0x1ed);
+    return process.umask(oldmask);
+  }
+};
+
+filecopy = function(classname, cvparams, viewengine) {
+  var cv, docopy, filename, regex, template, text;
+  docopy = false;
+  filename = 'views/' + classname + '.' + viewengine;
+  template = 'views/__template.' + viewengine;
+  cv = cvparams.replace(/^\s*,/, '');
+  switch (viewengine) {
+    case 'ect':
+      regex = /^<!--update/;
+      text = "<!--update:この行を消さないと、毎回上書きされます-->\n";
+      text += "<!--このテンプレートの自明な引数 ⇒ " + cv + " -->\n";
+      break;
+    case 'jade':
+      regex = /^\/\/update/;
+      text = "//update:この行を消さないと、毎回上書きされます\n";
+      text += "//このテンプレートの自明な引数 ⇒ " + cv + "\n";
+      break;
+    case 'ejs':
+      regex = /^<% \/\* update/;
+      text = "<% /* update:この行を消さないと、毎回上書きされます */ %>\n";
+      text += "<% /* このテンプレートの自明な引数 ⇒ " + cv + " */ %>\n";
+      break;
+    case 'coffee':
+      regex = /^#update/;
+      text = "#update:この行を消さないと、毎回上書きされます\n";
+      text += "#このテンプレートの自明な引数 ⇒ " + cv + "\n";
+      break;
+    case 'haml':
+      regex = /^-#update/;
+      text = "-#update:この行を消さないと、毎回上書きされます\n";
+      text += "-#このテンプレートの自明な引数 ⇒ " + cv + "\n";
+      break;
+    default:
+      console.log('view engine [' + viewengine + '] is mi ta i o u!');
+      return;
+  }
+  if (!fs.existsSync(template)) {
+    console.log('template file is not found!');
+    return;
+  }
+  if (fs.existsSync(filename)) {
+    if (regex.test(fs.readFileSync(filename).toString())) {
+      docopy = true;
+      fs.unlinkSync(filename);
+    } else {
+      docopy = false;
+    }
+  } else {
+    docopy = true;
+  }
+  if (docopy) {
+    fs.writeFileSync(filename, text + fs.readFileSync(template, 'utf8'));
+    return console.log('created: ' + filename);
+  }
+};
+
+writetext = function(dst, text) {
+  return fs.appendFileSync(dst, text, 'utf8', function(err) {
+    return console.log(err);
+  });
+};
+
+generateTail = function(dst, indentsp, classname, routername) {
+  var text;
+  text = indentsp + classname + '.install ' + routername + "\n\n";
+  text = indentsp + 'module.exports.' + classname + ' = ' + classname + "\n\n";
+  return writetext(dst, text);
+};
+
+generateMain = function(dst, indentsp, classname, temp, routername, mw, nocache, viewengine) {
+  var appendnocache, argreq, argres, args, buildparams4sp, cvparams, emptyobject, i, index, j, len, len1, randomstring, reqparams4sp, str, text, urlprm, yamlparams6sp;
+  args = [];
+  for (index = i = 0, len = temp.length; i < len; index = ++i) {
+    str = temp[index];
+    str = str.replace(/^\s+/, '').replace(/\s+$/, '');
+    switch (index) {
+      case 0:
+        argreq = str;
+        break;
+      case 1:
+        argres = str;
+        break;
+      default:
+        args.push(str);
+    }
+  }
+  urlprm = '';
+  cvparams = '';
+  buildparams4sp = '';
+  reqparams4sp = '';
+  yamlparams6sp = '';
+  for (index = j = 0, len1 = args.length; j < len1; index = ++j) {
+    str = args[index];
+    urlprm += '/:' + str;
+    cvparams += ',' + str;
+    if (index > 0) {
+      buildparams4sp += "\n";
+      reqparams4sp += "\n";
+      yamlparams6sp += "\n";
+    }
+    buildparams4sp += indentsp + "    params += '/'+encodeURIComponent(" + str + ")";
+    reqparams4sp += indentsp + "    " + str + " = " + argreq + ".params." + str + " ? ''";
+    yamlparams6sp += indentsp + "      " + str + ": " + str;
+  }
+  emptyobject = args.length === 0 ? ' {}' : '';
+  randomstring = 'Math.random().toString(36).slice(-8)';
+  appendnocache = nocache ? "+'?'+" + randomstring + "+" + randomstring : '';
+  path = classname.replace(/__/, '/');
+  text = "" + indentsp + classname + " = class _" + classname + "\n" + indentsp + "  @install: (obj) => obj.get '/" + path + urlprm + "'," + mw + "@get\n" + indentsp + "  @redirect: (" + argreq + "," + argres + cvparams + ") =>\n" + indentsp + "    params = ''\n" + buildparams4sp + "\n" + indentsp + "    " + argres + ".redirect '/" + path + "'+params" + appendnocache + "\n" + indentsp + "  @get: (" + argreq + "," + argres + ") =>\n" + reqparams4sp + "\n" + indentsp + "    @direct " + argreq + "," + argres + cvparams + "\n" + indentsp + "  @direct: (" + argreq + "," + argres + cvparams + ") =>\n" + indentsp + "    params =" + emptyobject + "\n" + yamlparams6sp;
+  writetext(dst, text);
+  if (typeof filesw !== "undefined" && filesw !== null) {
+    filecopy(classname, cvparams, viewengine);
+  }
+  return argres;
+};
+
+doconv = function(dst, src) {
+  var addindent, argres, classname, comments, comsp, confcomment, content, defaultmode, generate, i, indentsp, index, j, key, keyvalue, keyvalues, len, len1, line, linecom, mw, nocache, normaloutput, result, routername, scopeindentsp, spaces, temp, tempkv, value, viewengine;
+  console.log('processing... ' + src);
+  content = fs.readFileSync(src).toString();
+  content = content.replace(/\r\n/, "\n").replace(/\r/, "\n").split("\n");
+  if (fs.existsSync(dst)) {
+    fs.writeFile(dst, '', 'utf8', function(err) {
+      return console.log(err);
+    });
+  }
+  comments = false;
+  generate = false;
+  indentsp = '';
+  defaultmode = true;
+  routername = 'router';
+  mw = '';
+  nocache = true;
+  viewengine = 'ect';
+  for (index = i = 0, len = content.length; i < len; index = ++i) {
+    line = content[index];
+    if (index > 0) {
+      writetext(dst, "\n");
+    }
+    if (comments) {
+      if (generate) {
+        writetext(dst, '  ' + line);
+      } else {
+        writetext(dst, line);
+      }
+      if (/^\s*###/.test(line)) {
+        comments = false;
+      }
+    } else {
+      normaloutput = false;
+      addindent = false;
+      result = line.match(/^(\s*)#(\s*)/);
+      if (result === null) {
+        comsp = 0;
+        linecom = false;
+      } else {
+        comsp = result[1].length + result[2].length;
+        linecom = true;
+      }
+      if (/^\s*###/.test(line)) {
+        comments = true;
+        normaloutput = true;
+        addindent = generate;
+      } else if (linecom && ((!generate) || (comsp > indentsp.length))) {
+        normaloutput = true;
+        addindent = generate;
+      } else if (/^\s*$/.test(line)) {
+        normaloutput = true;
+        addindent = generate;
+      } else {
+        if (/^\s*<<</.test(line)) {
+          if (generate) {
+            generateTail(dst, indentsp, classname, routername);
+          }
+          result = line.match(/^(\s*)<<<\s*{([^{}]*)}/);
+          if (result === null) {
+            if (defaultmode) {
+              defaultmode = false;
+              confcomment = '#' + routername + ', ';
+              confcomment += mw.replace(/,$/, '') + ', ';
+              confcomment += nocache.toString() + ', ';
+              confcomment += viewengine;
+              writetext(dst, confcomment);
+            }
+            result = line.match(/^(\s*)<<<\s*(\S+)\s*\(([^()]+)\)/);
+            if (result === null) {
+              console.log('syntax error [' + index + ']');
+              process.exit(1);
+            }
+            indentsp = result[1];
+            classname = result[2];
+            temp = result[3].split(',');
+            argres = generateMain(dst, indentsp, classname, temp, routername, mw, nocache, viewengine);
+            generate = true;
+            normaloutput = false;
+          } else {
+            defaultmode = false;
+            scopeindentsp = result[1];
+            tempkv = {};
+            keyvalues = result[2].split(',');
+            for (j = 0, len1 = keyvalues.length; j < len1; j++) {
+              keyvalue = keyvalues[j];
+              keyvalue = keyvalue.replace(/^\s+/, '').replace(/\s+$/, '');
+              keyvalue = keyvalue.split(':');
+              key = keyvalue[0].replace(/^\s+/, '').replace(/\s+$/, '');
+              value = keyvalue[1].replace(/^\s+/, '').replace(/\s+$/, '');
+              tempkv[key] = value;
+            }
+            if (tempkv.routername != null) {
+              routername = tempkv.routername;
+              if (routername.length === 0) {
+                routername = 'router';
+              }
+            }
+            if (tempkv.middleware != null) {
+              mw = tempkv.middleware;
+              if (mw.length > 0) {
+                mw = mw + ',';
+              }
+            }
+            if (tempkv.viewengine) {
+              viewengine = tempkv.viewengine;
+              if (viewengine === '') {
+                viewengine = 'ect';
+              }
+            }
+            if (tempkv.nocache != null) {
+              nocache = /(true|ok|yes)/i.test(tempkv.nocache);
+            }
+            confcomment = '#' + routername + ', ';
+            confcomment += mw.replace(/,$/, '') + ', ';
+            confcomment += nocache.toString() + ', ';
+            confcomment += viewengine;
+            writetext(dst, confcomment);
+            normaloutput = false;
+          }
+        } else if (generate) {
+          spaces = line.match(/^\s*/);
+          if (spaces === null) {
+            console.log('a ri e nai error!');
+            process.exit();
+          }
+          if (spaces[0].length > indentsp.length) {
+            line = line.replace(/@render\b/, argres + '.render');
+            line = line.replace(/@@/, "'" + classname + "'");
+            writetext(dst, '  ' + line);
+            normaloutput = false;
+          } else {
+            generateTail(dst, indentsp, classname, routername);
+            generate = false;
+            normaloutput = true;
+          }
+        } else {
+          normaloutput = true;
+        }
+      }
+      if (normaloutput) {
+        if (addindent) {
+          fs.appendFileSync(dst, '  ' + line, 'utf8', function(err) {
+            return console.log(err);
+          });
+        } else {
+          fs.appendFileSync(dst, line, 'utf8', function(err) {
+            return console.log(err);
+          });
+        }
+      }
+    }
+  }
+  console.log('completed!');
+  if (typeof testersw !== "undefined" && testersw !== null) {
+    return createviewstester(viewengine);
+  }
+};
+
+options = false;
+
+ref = process.argv;
+for (index = i = 0, len = ref.length; i < len; index = ++i) {
+  val = ref[index];
+  itsself = false;
+  if (index === 1 && /\/goldblend\.coffee$/.test(val)) {
+    compile(val);
+    itsself = true;
+  }
+  if (index > 0) {
+    if (/^-/.test(val)) {
+      allflag = /a/.test(val) || /^\-\-all$/.test(val);
+      if (/w/.test(val) || /^\-\-watch$/.test(val)) {
+        options = true;
+        watch = true;
+      }
+      if (/c/.test(val) || /^\-\-compile$/.test(val) || allflag) {
+        options = true;
+        compilesw = true;
+      }
+      if (/t/.test(val) || /^\-\-testview$/.test(val) || allflag) {
+        options = true;
+        testersw = true;
+      }
+      if (/f/.test(val) || /^\-\-file$/.test(val) || allflag) {
+        options = true;
+        filesw = true;
+      }
+      if (/v/.test(val) || /^\-\-version$/.test(val)) {
+        options = true;
+        console.log('version 0.2');
+        process.exit(0);
+      }
+      if (/h/.test(val) || /^\-\-help$/.test(val)) {
+        options = false;
+      }
+    } else {
+      if (/\.gold$/i.test(val) && (fs.existsSync(val)) && (!itsself)) {
+        options = true;
+        filesrc = val;
+        filedst = val.replace(/gold$/i, 'coffee');
+      }
+    }
+  }
+}
+
+if (!options) {
+  console.log('CoffeeScript version\n  coffee goldblend.coffee -e [options] [filepath]\n\nJavascript version\n  goldblend [options] [filepath]\n  \n  -v --version  show version\n  -h --help     show usage\n  -w --watch    watch source file\n  -c --compile  compile source file\n  -t --testview create \'testviews.coffee\' for testing \n                template files (__[filename].[ext]) in /views.\n  -f --file     create view template files by copying \n                \'/views/__template.[ext]\'\n  -a --all      same as -ctf\n  filepath      source file name.');
+  process.exit(0);
+}
+
+if (!(filesrc != null)) {
+  if (testersw != null) {
+    createviewstester('ect');
+  }
+} else {
+  if (compilesw != null) {
+    doconv(filedst, filesrc);
+    compile(filedst);
+  }
+  if (watch != null) {
+    fs.watch(filesrc, function(event, filename) {
+      if (filename) {
+        if (compilesw != null) {
+          doconv(filedst, filename);
+          return compile(filedst);
+        }
+      }
+    });
+  }
+}
+
+0;

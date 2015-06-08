@@ -1,0 +1,14 @@
+{
+  "name": "goldblend",
+  "description": "tiny coffeescript preprocessor for easily creating view classes.",
+  "repository" : { "type" : "git", "url" : "https://github.com/mrpepper023/goldblend.git"},
+  "homepage": "https://github.com/mrpepper023/goldblend",
+  "version": "0.0.1",
+  "private": false,
+  "bin": { "goldblend" : "./bin/goldblend" },
+  "dependencies": {
+    "express":         "4.x"
+  },
+  "author": "Michio Yokomizo (mrpepper023)",
+  "license": "MIT"
+}

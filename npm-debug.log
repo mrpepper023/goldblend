@@ -1,0 +1,59 @@
+0 info it worked if it ends with ok
+1 verbose cli [ 'node', '/usr/bin/npm', 'publish' ]
+2 info using npm@2.8.4
+3 info using node@v0.10.33
+4 verbose publish [ '.' ]
+5 silly cache add args [ '.', null ]
+6 verbose cache add spec .
+7 silly cache add parsed spec { raw: '.',
+7 silly cache add   scope: null,
+7 silly cache add   name: null,
+7 silly cache add   rawSpec: '.',
+7 silly cache add   spec: '/usr/share/nginx/node/products/goldblend',
+7 silly cache add   type: 'directory' }
+8 verbose addLocalDirectory /home/sergemizo/.npm/goldblend/0.0.1/package.tgz not in flight; packing
+9 verbose tar pack [ '/home/sergemizo/.npm/goldblend/0.0.1/package.tgz',
+9 verbose tar pack   '/usr/share/nginx/node/products/goldblend' ]
+10 verbose tarball /home/sergemizo/.npm/goldblend/0.0.1/package.tgz
+11 verbose folder /usr/share/nginx/node/products/goldblend
+12 info prepublish goldblend@0.0.1
+13 verbose addLocalTarball adding from inside cache /home/sergemizo/.npm/goldblend/0.0.1/package.tgz
+14 silly cache afterAdd goldblend@0.0.1
+15 verbose afterAdd /home/sergemizo/.npm/goldblend/0.0.1/package/package.json not in flight; writing
+16 verbose afterAdd /home/sergemizo/.npm/goldblend/0.0.1/package/package.json written
+17 silly publish { name: 'goldblend',
+17 silly publish   description: 'tiny coffeescript preprocessor for easily creating view classes.',
+17 silly publish   homepage: 'https://github.com/mrpepper023/goldblend',
+17 silly publish   version: '0.0.1',
+17 silly publish   private: true,
+17 silly publish   dependencies: { express: '~4.12.2' },
+17 silly publish   author: { name: 'Michio Yokomizo', url: 'mrpepper023' },
+17 silly publish   license: 'MIT',
+17 silly publish   readme: '# goldblend\r\n\r\ngoldblend\r\n',
+17 silly publish   readmeFilename: 'README.md',
+17 silly publish   _id: 'goldblend@0.0.1',
+17 silly publish   scripts: {},
+17 silly publish   _shasum: '6e891a1dff8aece45fb9bbdee3195c9bc10d7f42',
+17 silly publish   _from: '.' }
+18 verbose stack Error: This package has been marked as private
+18 verbose stack Remove the 'private' field from the package.json to publish it.
+18 verbose stack     at publish_ (/usr/lib/node_modules/npm/lib/publish.js:108:5)
+18 verbose stack     at Array.1 (/usr/lib/node_modules/npm/node_modules/slide/lib/bind-actor.js:15:8)
+18 verbose stack     at LOOP (/usr/lib/node_modules/npm/node_modules/slide/lib/chain.js:15:14)
+18 verbose stack     at LOOP (/usr/lib/node_modules/npm/node_modules/slide/lib/chain.js:14:28)
+18 verbose stack     at chain (/usr/lib/node_modules/npm/node_modules/slide/lib/chain.js:20:5)
+18 verbose stack     at /usr/lib/node_modules/npm/lib/publish.js:74:5
+18 verbose stack     at RES (/usr/lib/node_modules/npm/node_modules/inflight/inflight.js:23:14)
+18 verbose stack     at f (/usr/lib/node_modules/npm/node_modules/once/once.js:17:25)
+18 verbose stack     at /usr/lib/node_modules/npm/lib/cache.js:350:14
+18 verbose stack     at /usr/lib/node_modules/npm/node_modules/write-file-atomic/index.js:29:15
+19 verbose cwd /usr/share/nginx/node/products/goldblend
+20 error Linux 2.6.32-504.16.2.el6.x86_64
+21 error argv "node" "/usr/bin/npm" "publish"
+22 error node v0.10.33
+23 error npm  v2.8.4
+24 error This package has been marked as private
+24 error Remove the 'private' field from the package.json to publish it.
+25 error If you need help, you may report this error at:
+25 error     <https://github.com/npm/npm/issues>
+26 verbose exit [ 1, true ]
