@@ -73,7 +73,7 @@ createviewstester = (viewengine) ->
       else
   
   #viewsを見て、templatesを補う＆usercodes.templname.exist = trueにする
-  dirfiles __dirname + '/views',(new RegExp('^__.*\.'+viewengine+'$')), (fnames) ->
+  dirfiles process.cwd() + '/views',(new RegExp('^__.*\.'+viewengine+'$')), (fnames) ->
     for fname in fnames
       fname = fname.replace(/\.[^.]+$/,'')
       templates.push(fname)
@@ -432,8 +432,14 @@ doconv = (dst, src) ->
     createviewstester(viewengine)
 
 
+
+getPackageJSON = ->
+  packagejson = require(process.argv[1].replace(/bin\/[^\/]*$/, '')+'package.json')
+  return packagejson
+
 #------------------------------------
 #-- コマンドライン引数の解釈
+packagejson = getPackageJSON()
 options = false
 for val,index in process.argv
   itsself = false
@@ -458,7 +464,7 @@ for val,index in process.argv
         filesw = true
       if /v/.test(val) or /^\-\-version$/.test(val)
         options = true
-        console.log 'version 0.0.2'
+        console.log packagejson.name+' version '+packagejson.version
         process.exit 0
       if /h/.test(val) or /^\-\-help$/.test(val)
         options = false
@@ -469,12 +475,10 @@ for val,index in process.argv
         filedst = val.replace /gold$/i, 'coffee'
 
 if not options
+  console.log packagejson.name+' version '+packagejson.version
   console.log '''
-CoffeeScript version
-  coffee goldblend.coffee -e [options] [filepath]
 
-Javascript version
-  goldblend [options] [filepath]
+usage: goldblend [options] [filepath]
   
   -v --version  show version
   -h --help     show usage

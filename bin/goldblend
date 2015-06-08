@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-var allflag, coffee, compile, compilesw, createviewstester, dirfiles, doconv, filecopy, filedst, filesrc, filesw, fs, generateMain, generateTail, i, index, itsself, len, options, path, ref, testersw, val, watch, writetext;
+var allflag, coffee, compile, compilesw, createviewstester, dirfiles, doconv, filecopy, filedst, filesrc, filesw, fs, generateMain, generateTail, getPackageJSON, i, index, itsself, len, options, packagejson, path, ref, testersw, val, watch, writetext;
 
 fs = require('fs');
 
@@ -79,7 +79,7 @@ createviewstester = function(viewengine) {
         break;
     }
   }
-  return dirfiles(__dirname + '/views', new RegExp('^__.*\.' + viewengine + '$'), function(fnames) {
+  return dirfiles(process.cwd() + '/views', new RegExp('^__.*\.' + viewengine + '$'), function(fnames) {
     var fname, j, k, l, len1, len2, len3, len4, m, ref, resultcode, selectone, str;
     for (j = 0, len1 = fnames.length; j < len1; j++) {
       fname = fnames[j];
@@ -470,6 +470,14 @@ doconv = function(dst, src) {
   }
 };
 
+getPackageJSON = function() {
+  var packagejson;
+  packagejson = require(process.argv[1].replace(/bin\/[^\/]*$/, '') + 'package.json');
+  return packagejson;
+};
+
+packagejson = getPackageJSON();
+
 options = false;
 
 ref = process.argv;
@@ -501,7 +509,7 @@ for (index = i = 0, len = ref.length; i < len; index = ++i) {
       }
       if (/v/.test(val) || /^\-\-version$/.test(val)) {
         options = true;
-        console.log('version 0.0.2');
+        console.log(packagejson.name + ' version ' + packagejson.version);
         process.exit(0);
       }
       if (/h/.test(val) || /^\-\-help$/.test(val)) {
@@ -518,7 +526,8 @@ for (index = i = 0, len = ref.length; i < len; index = ++i) {
 }
 
 if (!options) {
-  console.log('CoffeeScript version\n  coffee goldblend.coffee -e [options] [filepath]\n\nJavascript version\n  goldblend [options] [filepath]\n  \n  -v --version  show version\n  -h --help     show usage\n  -w --watch    watch source file\n  -c --compile  compile source file\n  -t --testview create \'testviews.coffee\' for testing \n                template files (__[filename].[ext]) in /views.\n  -f --file     create view template files by copying \n                \'/views/__template.[ext]\'\n  -a --all      same as -ctf\n  filepath      source file name.');
+  console.log(packagejson.name + ' version ' + packagejson.version);
+  console.log('\nusage: goldblend [options] [filepath]\n  \n  -v --version  show version\n  -h --help     show usage\n  -w --watch    watch source file\n  -c --compile  compile source file\n  -t --testview create \'testviews.coffee\' for testing \n                template files (__[filename].[ext]) in /views.\n  -f --file     create view template files by copying \n                \'/views/__template.[ext]\'\n  -a --all      same as -ctf\n  filepath      source file name.');
   process.exit(0);
 }
 
