@@ -259,8 +259,7 @@ writetext = function(dst, text) {
 
 generateTail = function(dst, indentsp, classname, routername) {
   var text;
-  text = indentsp + classname + '.install ' + routername + "\n\n";
-  text = indentsp + 'module.exports.' + classname + ' = ' + classname + "\n\n";
+  text = indentsp + 'module.exports.' + classname + '.install ' + routername + "\n\n";
   return writetext(dst, text);
 };
 
@@ -303,7 +302,7 @@ generateMain = function(dst, indentsp, classname, temp, routername, mw, nocache,
   randomstring = 'Math.random().toString(36).slice(-8)';
   appendnocache = nocache ? "+'?'+" + randomstring + "+" + randomstring : '';
   path = classname.replace(/__/, '/');
-  text = "" + indentsp + classname + " = class _" + classname + "\n" + indentsp + "  @install: (obj) => obj.get '/" + path + urlprm + "'," + mw + "@get\n" + indentsp + "  @redirect: (" + argreq + "," + argres + cvparams + ") =>\n" + indentsp + "    params = ''\n" + buildparams4sp + "\n" + indentsp + "    " + argres + ".redirect '/" + path + "'+params" + appendnocache + "\n" + indentsp + "  @get: (" + argreq + "," + argres + ") =>\n" + reqparams4sp + "\n" + indentsp + "    @direct " + argreq + "," + argres + cvparams + "\n" + indentsp + "  @direct: (" + argreq + "," + argres + cvparams + ") =>\n" + indentsp + "    params =" + emptyobject + "\n" + yamlparams6sp;
+  text = indentsp + "module.exports." + classname + " = class _" + classname + "\n" + indentsp + "  @install: (obj) => obj.get '/" + path + urlprm + "'," + mw + "@get\n" + indentsp + "  @redirect: (" + argreq + "," + argres + cvparams + ") =>\n" + indentsp + "    params = ''\n" + buildparams4sp + "\n" + indentsp + "    " + argres + ".redirect '/" + path + "'+params" + appendnocache + "\n" + indentsp + "  @get: (" + argreq + "," + argres + ") =>\n" + reqparams4sp + "\n" + indentsp + "    @direct " + argreq + "," + argres + cvparams + "\n" + indentsp + "  @direct: (" + argreq + "," + argres + cvparams + ") =>\n" + indentsp + "    params =" + emptyobject + "\n" + yamlparams6sp;
   writetext(dst, text);
   if (typeof filesw !== "undefined" && filesw !== null) {
     filecopy(classname, cvparams, viewengine);

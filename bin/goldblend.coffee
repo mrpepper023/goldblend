@@ -230,8 +230,7 @@ writetext = (dst, text) ->
 #------------------------------------
 #-- 画面定義の出力（末尾）
 generateTail = (dst, indentsp, classname, routername) ->
-  text = indentsp+classname+'.install '+routername+"\n\n"
-  text = indentsp+'module.exports.'+classname+' = '+classname+"\n\n"
+  text = indentsp+'module.exports.'+classname+'.install '+routername+"\n\n"
   writetext dst,text
 
 #------------------------------------
@@ -270,7 +269,7 @@ generateMain = (dst,indentsp,classname,temp,routername,mw,nocache,viewengine) ->
   path = classname.replace /__/,'/'
   
   text = """
-#{indentsp}#{classname} = class _#{classname}
+#{indentsp}module.exports.#{classname} = class _#{classname}
 #{indentsp}  @install: (obj) => obj.get '/#{path}#{urlprm}',#{mw}@get
 #{indentsp}  @redirect: (#{argreq},#{argres}#{cvparams}) =>
 #{indentsp}    params = ''
