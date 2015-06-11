@@ -260,7 +260,7 @@ writetext = function(dst, text) {
 generateTail = function(dst, indentsp, classname, routername, reserveflag, reservedcode) {
   var text;
   if (reserveflag) {
-    reservedcode[0] += '<<<ind>>>' + classname + '.install ' + routername + "\n";
+    reservedcode[0] += '<<<ind>>>_' + classname + '.install ' + routername + "\n";
   } else {
     text = indentsp + classname + '.install ' + routername + "\n\n";
     writetext(dst, text);

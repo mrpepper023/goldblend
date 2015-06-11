@@ -231,7 +231,7 @@ writetext = (dst, text) ->
 #-- 画面定義の出力（末尾）
 generateTail = (dst, indentsp, classname, routername,reserveflag,reservedcode) ->
   if reserveflag
-    reservedcode[0] += '<<<ind>>>'+classname+'.install '+routername+"\n"
+    reservedcode[0] += '<<<ind>>>_'+classname+'.install '+routername+"\n"
   else
     text = indentsp+classname+'.install '+routername+"\n\n"
     writetext dst,text
