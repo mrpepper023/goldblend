@@ -229,9 +229,13 @@ writetext = (dst, text) ->
 
 #------------------------------------
 #-- 画面定義の出力（末尾）
-generateTail = (dst, indentsp, classname, routername) ->
-  text = indentsp+'module.exports.'+classname+'.install '+routername+"\n\n"
-  writetext dst,text
+generateTail = (dst, indentsp, classname, routername,reserveflag,reservedcode) ->
+  if reserveflag
+    reservedcode[0] += '<<<ind>>>'+classname+'.install '+routername+"\n"
+  else
+    text = indentsp+classname+'.install '+routername+"\n\n"
+    writetext dst,text
+  0
 
 #------------------------------------
 #-- 画面定義の出力（前半）
@@ -265,7 +269,13 @@ generateMain = (dst,indentsp,classname,temp,routername,mw,nocache,viewengine) ->
   emptyobject = if args.length == 0 then ' {}' else ''
 
   randomstring = 'Math.random().toString(36).slice(-8)'
-  appendnocache = if nocache then "+'?'+#{randomstring}+#{randomstring}" else ''
+  if nocache
+    preparenocache  = indentsp+'    addstr  = '+randomstring+"\n"
+    preparenocache += indentsp+'    addstr += '+randomstring+"\n"
+    appendnocache = "+'?'+addstr"
+  else
+    preparenocache = ''
+    appendnocache = ''
   path = classname.replace /__/,'/'
   
   text = """
@@ -274,7 +284,7 @@ generateMain = (dst,indentsp,classname,temp,routername,mw,nocache,viewengine) ->
 #{indentsp}  @redirect: (#{argreq},#{argres}#{cvparams}) =>
 #{indentsp}    params = ''
 #{buildparams4sp}
-#{indentsp}    #{argres}.redirect '/#{path}'+params#{appendnocache}
+#{preparenocache}#{indentsp}    #{argres}.redirect '/#{path}'+params#{appendnocache}
 #{indentsp}  @get: (#{argreq},#{argres}) =>
 #{reqparams4sp}
 #{indentsp}    @direct #{argreq},#{argres}#{cvparams}
@@ -304,6 +314,8 @@ doconv = (dst, src) ->
   mw = ''
   nocache = true
   viewengine = 'ect'
+  reservedcode = ['']
+  reserveflag = false
   for line,index in content
     if index>0
       writetext dst,"\n"
@@ -341,8 +353,12 @@ doconv = (dst, src) ->
         if /^\s*<<</.test(line)
           if generate
             #generate末尾出力
-            generateTail dst,indentsp,classname,routername
-
+            generateTail(
+              dst,
+              indentsp,classname,routername,
+              reserveflag,reservedcode
+            )
+          
           result = line.match /^(\s*)<<<\s*{([^{}]*)}/
           if result == null
             #newgenerate
@@ -359,15 +375,32 @@ doconv = (dst, src) ->
             #classnameの取得
             result = line.match /^(\s*)<<<\s*(\S+)\s*\(([^()]+)\)/
             if result == null
-              console.log 'syntax error ['+index+']'
-              process.exit 1
-            #generate要素読み取り
-            indentsp = result[1]
-            classname = result[2]
-            temp = result[3].split(',')
-            argres = generateMain dst,indentsp,classname,temp,routername,mw,nocache,viewengine
-            generate = true
-            normaloutput = false
+              generate = false
+              if /^(\s*)<<<\s*reserve\s*/.test(line)
+                reserveflag = true
+                normaloutput = false
+              else if /^(\s*)<<<\s*restore\s*/.test(line)
+                result = line.match /^(\s*)<<<\s*restore\s*/
+                reserveindentsp = result[1]
+                writetext dst,reservedcode[0].replace(/<<<ind>>>/g, reserveindentsp)
+                reservedcode = ['']
+                reserveflag = false
+                normaloutput = false
+              else
+                console.log 'syntax error ['+index+']'
+                process.exit 1
+            else
+              #generate要素読み取り
+              indentsp = result[1]
+              classname = result[2]
+              temp = result[3].split(',')
+              argres = generateMain(
+                dst,
+                indentsp,classname,temp,
+                routername,mw,nocache,viewengine
+              )
+              generate = true
+              normaloutput = false
           else
             #routernameの取得
             #mwの取得
@@ -415,7 +448,11 @@ doconv = (dst, src) ->
             normaloutput = false
           else
             #generate末尾出力
-            generateTail dst,indentsp,classname,routername
+            generateTail(
+              dst,
+              indentsp,classname,routername,
+              reserveflag,reservedcode
+            )
             generate = false
             normaloutput = true
         else

@@ -257,14 +257,19 @@ writetext = function(dst, text) {
   });
 };
 
-generateTail = function(dst, indentsp, classname, routername) {
+generateTail = function(dst, indentsp, classname, routername, reserveflag, reservedcode) {
   var text;
-  text = indentsp + 'module.exports.' + classname + '.install ' + routername + "\n\n";
-  return writetext(dst, text);
+  if (reserveflag) {
+    reservedcode[0] += '<<<ind>>>' + classname + '.install ' + routername + "\n";
+  } else {
+    text = indentsp + classname + '.install ' + routername + "\n\n";
+    writetext(dst, text);
+  }
+  return 0;
 };
 
 generateMain = function(dst, indentsp, classname, temp, routername, mw, nocache, viewengine) {
-  var appendnocache, argreq, argres, args, buildparams4sp, cvparams, emptyobject, i, index, j, len, len1, randomstring, reqparams4sp, str, text, urlprm, yamlparams6sp;
+  var appendnocache, argreq, argres, args, buildparams4sp, cvparams, emptyobject, i, index, j, len, len1, preparenocache, randomstring, reqparams4sp, str, text, urlprm, yamlparams6sp;
   args = [];
   for (index = i = 0, len = temp.length; i < len; index = ++i) {
     str = temp[index];
@@ -300,9 +305,16 @@ generateMain = function(dst, indentsp, classname, temp, routername, mw, nocache,
   }
   emptyobject = args.length === 0 ? ' {}' : '';
   randomstring = 'Math.random().toString(36).slice(-8)';
-  appendnocache = nocache ? "+'?'+" + randomstring + "+" + randomstring : '';
+  if (nocache) {
+    preparenocache = indentsp + '    addstr  = ' + randomstring + "\n";
+    preparenocache += indentsp + '    addstr += ' + randomstring + "\n";
+    appendnocache = "+'?'+addstr";
+  } else {
+    preparenocache = '';
+    appendnocache = '';
+  }
   path = classname.replace(/__/, '/');
-  text = indentsp + "module.exports." + classname + " = class _" + classname + "\n" + indentsp + "  @install: (obj) => obj.get '/" + path + urlprm + "'," + mw + "@get\n" + indentsp + "  @redirect: (" + argreq + "," + argres + cvparams + ") =>\n" + indentsp + "    params = ''\n" + buildparams4sp + "\n" + indentsp + "    " + argres + ".redirect '/" + path + "'+params" + appendnocache + "\n" + indentsp + "  @get: (" + argreq + "," + argres + ") =>\n" + reqparams4sp + "\n" + indentsp + "    @direct " + argreq + "," + argres + cvparams + "\n" + indentsp + "  @direct: (" + argreq + "," + argres + cvparams + ") =>\n" + indentsp + "    params =" + emptyobject + "\n" + yamlparams6sp;
+  text = indentsp + "module.exports." + classname + " = class _" + classname + "\n" + indentsp + "  @install: (obj) => obj.get '/" + path + urlprm + "'," + mw + "@get\n" + indentsp + "  @redirect: (" + argreq + "," + argres + cvparams + ") =>\n" + indentsp + "    params = ''\n" + buildparams4sp + "\n" + preparenocache + indentsp + "    " + argres + ".redirect '/" + path + "'+params" + appendnocache + "\n" + indentsp + "  @get: (" + argreq + "," + argres + ") =>\n" + reqparams4sp + "\n" + indentsp + "    @direct " + argreq + "," + argres + cvparams + "\n" + indentsp + "  @direct: (" + argreq + "," + argres + cvparams + ") =>\n" + indentsp + "    params =" + emptyobject + "\n" + yamlparams6sp;
   writetext(dst, text);
   if (typeof filesw !== "undefined" && filesw !== null) {
     filecopy(classname, cvparams, viewengine);
@@ -311,7 +323,7 @@ generateMain = function(dst, indentsp, classname, temp, routername, mw, nocache,
 };
 
 doconv = function(dst, src) {
-  var addindent, argres, classname, comments, comsp, confcomment, content, defaultmode, generate, i, indentsp, index, j, key, keyvalue, keyvalues, len, len1, line, linecom, mw, nocache, normaloutput, result, routername, scopeindentsp, spaces, temp, tempkv, value, viewengine;
+  var addindent, argres, classname, comments, comsp, confcomment, content, defaultmode, generate, i, indentsp, index, j, key, keyvalue, keyvalues, len, len1, line, linecom, mw, nocache, normaloutput, reservedcode, reserveflag, reserveindentsp, result, routername, scopeindentsp, spaces, temp, tempkv, value, viewengine;
   console.log('processing... ' + src);
   content = fs.readFileSync(src).toString();
   content = content.replace(/\r\n/, "\n").replace(/\r/, "\n").split("\n");
@@ -328,6 +340,8 @@ doconv = function(dst, src) {
   mw = '';
   nocache = true;
   viewengine = 'ect';
+  reservedcode = [''];
+  reserveflag = false;
   for (index = i = 0, len = content.length; i < len; index = ++i) {
     line = content[index];
     if (index > 0) {
@@ -366,7 +380,7 @@ doconv = function(dst, src) {
       } else {
         if (/^\s*<<</.test(line)) {
           if (generate) {
-            generateTail(dst, indentsp, classname, routername);
+            generateTail(dst, indentsp, classname, routername, reserveflag, reservedcode);
           }
           result = line.match(/^(\s*)<<<\s*{([^{}]*)}/);
           if (result === null) {
@@ -380,15 +394,29 @@ doconv = function(dst, src) {
             }
             result = line.match(/^(\s*)<<<\s*(\S+)\s*\(([^()]+)\)/);
             if (result === null) {
-              console.log('syntax error [' + index + ']');
-              process.exit(1);
+              generate = false;
+              if (/^(\s*)<<<\s*reserve\s*/.test(line)) {
+                reserveflag = true;
+                normaloutput = false;
+              } else if (/^(\s*)<<<\s*restore\s*/.test(line)) {
+                result = line.match(/^(\s*)<<<\s*restore\s*/);
+                reserveindentsp = result[1];
+                writetext(dst, reservedcode[0].replace(/<<<ind>>>/g, reserveindentsp));
+                reservedcode = [''];
+                reserveflag = false;
+                normaloutput = false;
+              } else {
+                console.log('syntax error [' + index + ']');
+                process.exit(1);
+              }
+            } else {
+              indentsp = result[1];
+              classname = result[2];
+              temp = result[3].split(',');
+              argres = generateMain(dst, indentsp, classname, temp, routername, mw, nocache, viewengine);
+              generate = true;
+              normaloutput = false;
             }
-            indentsp = result[1];
-            classname = result[2];
-            temp = result[3].split(',');
-            argres = generateMain(dst, indentsp, classname, temp, routername, mw, nocache, viewengine);
-            generate = true;
-            normaloutput = false;
           } else {
             defaultmode = false;
             scopeindentsp = result[1];
@@ -442,7 +470,7 @@ doconv = function(dst, src) {
             writetext(dst, '  ' + line);
             normaloutput = false;
           } else {
-            generateTail(dst, indentsp, classname, routername);
+            generateTail(dst, indentsp, classname, routername, reserveflag, reservedcode);
             generate = false;
             normaloutput = true;
           }
